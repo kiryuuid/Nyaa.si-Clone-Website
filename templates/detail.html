@@ -1,0 +1,587 @@
+{% extends "base.html" %}
+
+{# ── SEO: Title ── #}
+{% block title %}{{ data.title | truncate(60, True, '…') }} — {{ site_label }} | NyaaMirror{% endblock %}
+
+{# ── SEO: Meta Description ── #}
+{% block meta_description %}{{ data.title | truncate(80, True, '…') }} — Download .torrent or magnet link from {{ site_label }}. Size: {{ data.info.get('File size', data.info.get('Filesize', data.info.get('Size', 'N/A'))) }}. Seeders: {{ data.info.get('Seeders', data.info.get('Seeds', 'N/A')) }} | NyaaMirror{% endblock %}
+
+{# ── SEO: Canonical ── #}
+{% block canonical %}{{ request.host_url }}{{ site }}/view/{{ torrent_id }}{% endblock %}
+
+{# ── SEO: OG type override ── #}
+{% block og_type %}article{% endblock %}
+
+{# ── SEO: OG image — use torrent thumbnail if available ── #}
+{% block og_image %}{% if data.thumbnail %}{{ data.thumbnail }}{% else %}{{ request.host_url }}static/og-cover.png{% endif %}{% endblock %}
+
+{# ── SEO: JSON-LD — SoftwareApplication / creative work ── #}
+{% block json_ld %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "{% if site == 'sukebei' %}CreativeWork{% else %}SoftwareApplication{% endif %}",
+  "@id": "{{ request.host_url }}{{ site }}/view/{{ torrent_id }}",
+  "name": "{{ data.title | replace('"', '\\"') | replace('\n', ' ') }}",
+  "url": "{{ request.host_url }}{{ site }}/view/{{ torrent_id }}",
+  "description": "{{ (data.description[:200] if data.description else data.title) | replace('"', '\\"') | replace('\n', ' ') | replace('\r', '') }}",
+  {% if data.info.get('Category') or data.info.get('Submitter') %}"author": {
+    "@type": "Person",
+    "name": "{{ data.info.get('Submitter', 'Anonymous') | replace('"', '\\"') }}"
+  },{% endif %}
+  {% if data.info.get('Date') or data.info.get('Timestamp') %}"datePublished": "{{ data.info.get('Date', data.info.get('Timestamp', '')) }}",{% endif %}
+  {% if data.thumbnail %}"image": "{{ data.thumbnail }}",{% endif %}
+  "offers": {
+    "@type": "Offer",
+    "price": "0",
+    "priceCurrency": "USD",
+    "availability": "https://schema.org/InStock"
+  }
+}
+</script>
+{% endblock %}
+
+{# ── SEO: Breadcrumb ── #}
+{% block breadcrumb %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem", "position": 1,
+      "name": "Home", "item": "{{ request.host_url }}"
+    },
+    {
+      "@type": "ListItem", "position": 2,
+      "name": "{{ site_label }}", "item": "{{ request.host_url }}browse?site={{ site }}"
+    },
+    {
+      "@type": "ListItem", "position": 3,
+      "name": "{{ data.title | replace('"', '\\"') | truncate(60, True, '…') }}",
+      "item": "{{ request.host_url }}{{ site }}/view/{{ torrent_id }}"
+    }
+  ]
+}
+</script>
+{% endblock %}
+
+{% block content %}
+
+<!-- Back link -->
+<nav aria-label="Breadcrumb" class="mb-3">
+    <a href="javascript:history.back()"
+       class="inline-flex items-center gap-1.5 text-xs transition-colors hover:text-accent"
+       style="color:#5c6391;">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+        </svg>
+        Back to results
+    </a>
+    <span class="text-xs ml-3" style="color:#3d4466;" aria-hidden="true">
+        / <a href="/browse?site={{ site }}" class="hover:text-accent transition-colors" style="color:#5c6391;">{{ site_label }}</a>
+        / {{ data.title | truncate(50, True, '…') }}
+    </span>
+</nav>
+
+<!-- ── Hero card ─────────────────────────────────────────────── -->
+<div class="rounded-xl p-4 sm:p-5 mb-4" style="background:#131626; border:1px solid #252a45;">
+
+    <h1 class="font-display font-black text-base sm:text-xl leading-snug mb-4" style="color:#eef0ff;">
+        {{ data.title }}
+    </h1>
+
+    <div class="flex flex-wrap gap-2 sm:gap-3">
+        {% if data.torrent_file %}
+        <a href="{{ data.torrent_file }}"
+           aria-label="Download {{ data.title }} .torrent file"
+           class="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-lg text-xs sm:text-sm font-bold btn-press transition-all hover:opacity-90"
+           style="background:linear-gradient(135deg,#7b61ff,#9b7dff); color:white;">
+            <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Download .torrent
+        </a>
+        {% endif %}
+
+        {% if data.magnet %}
+        <a href="{{ data.magnet }}"
+           aria-label="Open magnet link for {{ data.title }}"
+           class="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-lg text-xs sm:text-sm font-bold btn-press transition-all hover:opacity-90"
+           style="background:rgba(0,229,196,0.12); border:1px solid rgba(0,229,196,0.35); color:#00e5c4;">
+            <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
+            </svg>
+            Open Magnet
+        </a>
+        {% endif %}
+
+        {% if data.magnet_raw %}
+        <button onclick="copyText('{{ data.magnet_raw }}')"
+                aria-label="Copy magnet link to clipboard"
+                class="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-lg text-xs sm:text-sm font-bold btn-press transition-all hover:opacity-90"
+                style="background:rgba(255,214,102,0.1); border:1px solid rgba(255,214,102,0.3); color:#ffd166;">
+            <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+            </svg>
+            Copy Magnet
+        </button>
+        {% endif %}
+
+        <a href="https://{{ site_label }}/view/{{ torrent_id }}" target="_blank" rel="noopener noreferrer"
+           aria-label="View on {{ site_label }} (opens in new tab)"
+           class="flex items-center gap-1.5 px-4 sm:px-5 py-2.5 rounded-lg text-xs sm:text-sm font-bold btn-press transition-all hover:opacity-90"
+           style="background:rgba(255,97,192,0.08); border:1px solid rgba(255,97,192,0.25); color:#ff61c0;">
+            {{ site_label }} ↗
+        </a>
+    </div>
+</div>
+
+<!-- ── Main Grid ──────────────────────────────────────────────── -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+
+    <aside class="lg:col-span-1 space-y-4" aria-label="Torrent details">
+
+        <!-- Info table -->
+        <div class="rounded-xl overflow-hidden" style="border:1px solid #252a45;">
+            <div class="px-4 py-2.5 text-xs font-bold uppercase tracking-widest"
+                 style="background:#131626; color:#5c6391; border-bottom:1px solid #252a45;">
+                Torrent Info
+            </div>
+            <dl style="background:#0f1222;">
+                {% for key, val in data.info.items() %}
+                <div class="flex items-start gap-2 px-4 py-2.5 border-b text-xs"
+                     style="border-color:#151929;">
+                    <dt class="shrink-0 w-24 font-bold" style="color:#5c6391;">{{ key }}</dt>
+                    <dd class="break-all" style="color:#c8cef5;">{{ val }}</dd>
+                </div>
+                {% endfor %}
+            </dl>
+        </div>
+
+        <!-- Stats -->
+        {% set seeders_val  = data.info.get('Seeders',   data.info.get('Seeds', '')) %}
+        {% set leechers_val = data.info.get('Leechers',  data.info.get('Peers', '')) %}
+        {% if seeders_val or leechers_val %}
+        <div class="grid grid-cols-3 gap-2" role="group" aria-label="Torrent statistics">
+            {% if seeders_val %}
+            <div class="rounded-lg p-3 text-center" style="background:#131626; border:1px solid rgba(57,217,138,0.2);">
+                <div class="text-lg font-black seed" aria-label="{{ seeders_val }} seeders">{{ seeders_val }}</div>
+                <div class="text-xs" style="color:#5c6391;">Seeder</div>
+            </div>
+            {% endif %}
+            {% if leechers_val %}
+            <div class="rounded-lg p-3 text-center" style="background:#131626; border:1px solid rgba(255,77,109,0.2);">
+                <div class="text-lg font-black leech" aria-label="{{ leechers_val }} leechers">{{ leechers_val }}</div>
+                <div class="text-xs" style="color:#5c6391;">Leecher</div>
+            </div>
+            {% endif %}
+            {% set dl = data.info.get('Completed', data.info.get('Downloads','')) %}
+            {% if dl %}
+            <div class="rounded-lg p-3 text-center" style="background:#131626; border:1px solid #252a45;">
+                <div class="text-lg font-black" style="color:#7b61ff;">{{ dl }}</div>
+                <div class="text-xs" style="color:#5c6391;">Completed</div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- File list -->
+        {% if data.files %}
+        <div class="rounded-xl overflow-hidden" style="border:1px solid #252a45;">
+            <div class="px-4 py-2.5 text-xs font-bold uppercase tracking-widest flex items-center justify-between"
+                 style="background:#131626; color:#5c6391; border-bottom:1px solid #252a45;">
+                <span>Files</span>
+                <span class="font-mono" style="color:#7b61ff;" aria-label="{{ data.files|length }} files">{{ data.files|length }}</span>
+            </div>
+            <ul class="overflow-y-auto max-h-72" style="background:#0f1222;" aria-label="File list">
+                {% for f in data.files %}
+                <li class="px-4 py-2 border-b text-xs font-mono break-all"
+                     style="border-color:#151929; color:#c8cef5;">{{ f }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </aside>
+
+    <!-- Right column -->
+    <div class="lg:col-span-2 space-y-4">
+
+        <!-- ══════════════════════════════════════════════
+             LIVE VIDEO PLAYER  (WebTorrent)
+        ══════════════════════════════════════════════ -->
+        {% if data.magnet_raw %}
+        <div id="player-card" class="rounded-xl overflow-hidden" style="border:1px solid #252a45;">
+
+            <!-- Header bar -->
+            <div class="px-4 py-2.5 flex items-center justify-between"
+                 style="background:#131626; border-bottom:1px solid #252a45;">
+                <div class="flex items-center gap-2">
+                    <span id="player-dot" class="w-2 h-2 rounded-full" style="background:#3d4466;"></span>
+                    <span class="text-xs font-bold uppercase tracking-widest" style="color:#5c6391;">Live Stream</span>
+                    <span id="player-badge" class="text-xs px-2 py-0.5 rounded"
+                          style="display:none; background:rgba(255,77,109,0.15); color:#ff4d6d; border:1px solid rgba(255,77,109,0.3);">
+                        LIVE
+                    </span>
+                </div>
+                <div class="flex items-center gap-3 text-xs" style="color:#3d4466;">
+                    <span id="stat-speed">—</span>
+                    <span id="stat-peers">0 peers</span>
+                    <span id="stat-progress">0%</span>
+                    <!-- File picker (shown when multiple video files) -->
+                    <select id="file-picker"
+                            style="display:none; background:#0d0f1a; border:1px solid #252a45; color:#c8cef5;
+                                   font-size:0.7rem; padding:2px 6px; border-radius:4px; font-family:inherit;"
+                            onchange="switchFile(this.value)">
+                    </select>
+                </div>
+            </div>
+
+            <!-- Video stage -->
+            <div id="player-stage" style="background:#000; position:relative; min-height:320px; cursor:pointer;"
+                 onclick="startStream()">
+
+                <!-- Poster / idle state -->
+                <div id="player-idle"
+                     style="position:absolute; inset:0; display:flex; flex-direction:column;
+                            align-items:center; justify-content:center; gap:16px; z-index:2;">
+                    {% if data.thumbnail %}
+                    <img src="{{ data.thumbnail }}" alt=""
+                         style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0.18; filter:blur(6px);">
+                    {% endif %}
+                    <!-- Big play button -->
+                    <button id="btn-stream"
+                            style="position:relative; z-index:3; width:72px; height:72px; border-radius:50%;
+                                   background:linear-gradient(135deg,#7b61ff,#9b7dff);
+                                   border:none; cursor:pointer; display:flex; align-items:center; justify-content:center;
+                                   box-shadow:0 0 40px rgba(123,97,255,0.5); transition:transform 0.15s;"
+                            onmouseover="this.style.transform='scale(1.08)'"
+                            onmouseout="this.style.transform='scale(1)'"
+                            onclick="event.stopPropagation(); startStream()">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="white" style="margin-left:3px;">
+                            <path d="M8 5v14l11-7z"/>
+                        </svg>
+                    </button>
+                    <p style="position:relative; z-index:3; color:#5c6391; font-size:0.75rem; text-align:center; padding:0 16px;">
+                        Stream torrent directly in browser via WebTorrent<br>
+                        <span style="color:#3d4466; font-size:0.65rem;">Requires WebRTC-enabled trackers · No files saved to disk</span>
+                    </p>
+                </div>
+
+                <!-- Loading spinner -->
+                <div id="player-loading"
+                     style="position:absolute; inset:0; display:none; flex-direction:column;
+                            align-items:center; justify-content:center; gap:14px; z-index:4; background:#000;">
+                    <svg width="44" height="44" viewBox="0 0 44 44" style="animation:spin 1s linear infinite;">
+                        <circle cx="22" cy="22" r="18" fill="none" stroke="#7b61ff" stroke-width="3"
+                                stroke-dasharray="80 28" stroke-linecap="round"/>
+                    </svg>
+                    <p id="loading-msg" style="color:#5c6391; font-size:0.75rem;">Connecting to peers…</p>
+                    <!-- progress bar -->
+                    <div style="width:200px; height:3px; background:#1a1e33; border-radius:2px; overflow:hidden;">
+                        <div id="progress-bar" style="height:100%; width:0%; background:linear-gradient(90deg,#7b61ff,#00e5c4); transition:width 0.5s;"></div>
+                    </div>
+                    <button onclick="stopStream()" style="color:#ff4d6d; font-size:0.7rem; background:none; border:none; cursor:pointer; text-decoration:underline;">Cancel</button>
+                </div>
+
+                <!-- Error state -->
+                <div id="player-error"
+                     style="position:absolute; inset:0; display:none; flex-direction:column;
+                            align-items:center; justify-content:center; gap:10px; z-index:4; background:#0d0f1a;">
+                    <div style="font-size:2rem;">⚠️</div>
+                    <p id="error-msg" style="color:#ff7090; font-size:0.8rem; text-align:center; padding:0 24px;"></p>
+                    <button onclick="resetPlayer()"
+                            style="color:#7b61ff; font-size:0.75rem; background:rgba(123,97,255,0.1);
+                                   border:1px solid rgba(123,97,255,0.3); padding:6px 16px; border-radius:6px; cursor:pointer;">
+                        Try again
+                    </button>
+                </div>
+
+                <!-- Actual video element -->
+                <video id="webtorrent-video"
+                       controls controlslist="nodownload"
+                       style="display:none; width:100%; height:100%; max-height:480px; background:#000; position:relative; z-index:3;">
+                </video>
+            </div>
+
+            <!-- Bottom stats bar (shown during/after load) -->
+            <div id="stats-bar"
+                 style="display:none; background:#0a0c16; border-top:1px solid #151929;
+                        padding:8px 16px; gap:20px; flex-wrap:wrap;"
+                 class="flex items-center text-xs">
+                <span style="color:#5c6391;">📥 <span id="sb-dl">0 B/s</span></span>
+                <span style="color:#5c6391;">📤 <span id="sb-ul">0 B/s</span></span>
+                <span style="color:#5c6391;">👥 <span id="sb-peers">0</span> peers</span>
+                <span style="color:#5c6391;">💾 <span id="sb-downloaded">0 B</span> / <span id="sb-total">?</span></span>
+                <span style="color:#5c6391;">📶 <span id="sb-progress">0%</span></span>
+                <button onclick="stopStream()"
+                        style="margin-left:auto; color:#ff4d6d; font-size:0.7rem; background:none; border:none; cursor:pointer;">
+                    ✕ Stop
+                </button>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if data.thumbnail %}
+        <div class="rounded-xl overflow-hidden" style="border:1px solid #252a45;">
+            <img src="{{ data.thumbnail }}" alt="Preview image for {{ data.title }}"
+                 class="w-full object-cover max-h-72"
+                 loading="lazy"
+                 onerror="this.parentElement.style.display='none'">
+        </div>
+        {% endif %}
+
+        {% if data.description.strip() %}
+        <div class="rounded-xl overflow-hidden" style="border:1px solid #252a45;">
+            <div class="px-4 py-2.5 text-xs font-bold uppercase tracking-widest"
+                 style="background:#131626; color:#5c6391; border-bottom:1px solid #252a45;">
+                Description
+            </div>
+            <div class="px-4 py-4 text-sm leading-relaxed whitespace-pre-wrap break-words"
+                 style="background:#0f1222; color:#c8cef5; max-height:500px; overflow-y:auto;"
+                 itemprop="description">
+                {{ data.description.strip() }}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if data.comments %}
+        <div class="rounded-xl overflow-hidden" style="border:1px solid #252a45;">
+            <div class="px-4 py-2.5 text-xs font-bold uppercase tracking-widest flex items-center justify-between"
+                 style="background:#131626; color:#5c6391; border-bottom:1px solid #252a45;">
+                <span>Comments</span>
+                <span class="font-mono" style="color:#7b61ff;">{{ data.comments|length }}</span>
+            </div>
+            <div class="divide-y" style="background:#0f1222; divide-color:#151929;">
+                {% for c in data.comments %}
+                <div class="px-4 py-3">
+                    <div class="flex items-center justify-between mb-1.5">
+                        <span class="text-xs font-bold" style="color:#7b61ff;">{{ c.user }}</span>
+                        <time class="text-xs" style="color:#3d4466;" datetime="{{ c.timestamp }}">{{ c.timestamp }}</time>
+                    </div>
+                    <p class="text-xs leading-relaxed" style="color:#c8cef5;">{{ c.body }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        {% if not data.description.strip() and not data.comments %}
+        <div class="rounded-xl p-8 text-center" style="background:#0f1222; border:1px solid #252a45;" role="status">
+            <div class="text-3xl mb-2" aria-hidden="true">📄</div>
+            <p class="text-sm" style="color:#5c6391;">No description available.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_head %}
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes pulse-dot {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(255,77,109,0.6); }
+    50%       { box-shadow: 0 0 0 5px rgba(255,77,109,0); }
+}
+.dot-live {
+    background: #ff4d6d !important;
+    animation: pulse-dot 1.4s ease infinite;
+}
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+{% if data.magnet_raw %}
+<script src="https://cdn.jsdelivr.net/npm/webtorrent@2.8.5/index.min.js"></script>
+<script>
+// ── Constants ────────────────────────────────────────────────
+const MAGNET     = {{ data.magnet_raw | tojson }};
+const VIDEO_EXTS = /\.(mp4|webm|mkv|avi|mov|m4v|ogv|ts|flv)$/i;
+const TIMEOUT_MS = 30000;
+const FMT_UNITS  = ['B','KB','MB','GB','TB'];
+
+// ── State ────────────────────────────────────────────────────
+let client       = null;
+let torrent      = null;
+let activeFile   = null;
+let statsTimer   = null;
+let timeoutTimer = null;
+
+// ── Helpers ──────────────────────────────────────────────────
+function fmtBytes(n) {
+    if (!n || n < 1) return '0 B';
+    const i = Math.floor(Math.log(n) / Math.log(1024));
+    return (n / Math.pow(1024, i)).toFixed(i ? 1 : 0) + ' ' + FMT_UNITS[Math.min(i,4)];
+}
+function fmtSpeed(n) { return fmtBytes(n) + '/s'; }
+function el(id) { return document.getElementById(id); }
+
+function setPanel(name) {
+    ['player-idle','player-loading','player-error'].forEach(id => {
+        el(id).style.display = id === 'player-' + name ? 'flex' : 'none';
+    });
+    el('webtorrent-video').style.display = name === 'video' ? 'block' : 'none';
+}
+
+// ── Start Stream ─────────────────────────────────────────────
+function startStream() {
+    if (client) return;
+    el('player-stage').style.cursor = 'default';
+    setPanel('loading');
+    el('loading-msg').textContent = 'Connecting to peers…';
+    el('progress-bar').style.width = '0%';
+
+    client = new WebTorrent();
+    client.on('error', err => showError('WebTorrent: ' + (err.message || err)));
+
+    timeoutTimer = setTimeout(() => {
+        if (!activeFile) showError(
+            'No streamable video file found after 30 s.\n' +
+            'This torrent may not support WebRTC trackers\n' +
+            'or contains only audio / archive files.'
+        );
+    }, TIMEOUT_MS);
+
+    torrent = client.add(MAGNET, {
+        announce: [
+            'wss://tracker.btorrent.xyz',
+            'wss://tracker.openwebtorrent.com',
+            'wss://tracker.fastcast.nz'
+        ]
+    });
+
+    torrent.on('error', err => showError(err.message || String(err)));
+
+    torrent.on('metadata', () => {
+        el('loading-msg').textContent = 'Metadata received — scanning files…';
+        buildFilePicker();
+        const videos = torrent.files
+            .filter(f => VIDEO_EXTS.test(f.name))
+            .sort((a, b) => b.length - a.length);
+
+        if (!videos.length) {
+            clearTimeout(timeoutTimer);
+            showError('No video files found.\nFiles: ' + torrent.files.map(f=>f.name).join(', ').slice(0,140));
+            return;
+        }
+        playFile(videos[0]);
+    });
+
+    torrent.on('download', updateStats);
+    torrent.on('upload',   updateStats);
+    statsTimer = setInterval(updateStats, 1200);
+}
+
+// ── Play File ────────────────────────────────────────────────
+function playFile(file) {
+    clearTimeout(timeoutTimer);
+    activeFile = file;
+    const video = el('webtorrent-video');
+    file.renderTo(video, { autoplay: true }, err => {
+        if (err) { showError('Render error: ' + err.message); return; }
+    });
+    video.style.display = 'block';
+    setPanel('video');
+    el('player-dot').classList.add('dot-live');
+    el('player-badge').style.display = 'inline';
+    el('stats-bar').style.display    = 'flex';
+}
+
+// ── File Picker ──────────────────────────────────────────────
+function buildFilePicker() {
+    const picker = el('file-picker');
+    const videos = torrent.files
+        .filter(f => VIDEO_EXTS.test(f.name))
+        .sort((a,b) => b.length - a.length);
+    if (videos.length <= 1) return;
+    picker.innerHTML = '';
+    videos.forEach((f, i) => {
+        const opt = document.createElement('option');
+        opt.value = i;
+        opt.textContent = f.name.length > 35 ? '…' + f.name.slice(-33) : f.name;
+        picker.appendChild(opt);
+    });
+    picker.style.display = 'block';
+    picker._videos = videos;
+}
+
+function switchFile(idx) {
+    if (!torrent) return;
+    const videos = torrent.files
+        .filter(f => VIDEO_EXTS.test(f.name))
+        .sort((a,b) => b.length - a.length);
+    if (videos[idx]) playFile(videos[idx]);
+}
+
+// ── Stats ────────────────────────────────────────────────────
+function updateStats() {
+    if (!torrent) return;
+    const pct   = torrent.length ? ((torrent.downloaded / torrent.length) * 100).toFixed(1) : '0.0';
+    const dl    = fmtSpeed(torrent.downloadSpeed);
+    const ul    = fmtSpeed(torrent.uploadSpeed);
+    const peers = torrent.numPeers;
+
+    el('stat-speed').textContent    = dl;
+    el('stat-peers').textContent    = peers + ' peer' + (peers !== 1 ? 's' : '');
+    el('stat-progress').textContent = pct + '%';
+    el('progress-bar').style.width  = Math.min(parseFloat(pct), 100) + '%';
+
+    if (parseFloat(pct) > 0 && el('player-loading').style.display !== 'none')
+        el('loading-msg').textContent = 'Buffering… ' + pct + '%';
+
+    el('sb-dl').textContent         = dl;
+    el('sb-ul').textContent         = ul;
+    el('sb-peers').textContent      = peers;
+    el('sb-downloaded').textContent = fmtBytes(torrent.downloaded);
+    el('sb-total').textContent      = torrent.length ? fmtBytes(torrent.length) : '?';
+    el('sb-progress').textContent   = pct + '%';
+}
+
+// ── Stop / Error / Reset ─────────────────────────────────────
+function stopStream() {
+    clearTimeout(timeoutTimer);
+    clearInterval(statsTimer);
+    if (client) { client.destroy(); client = null; }
+    torrent = null; activeFile = null;
+
+    const video = el('webtorrent-video');
+    video.pause(); video.src = ''; video.style.display = 'none';
+
+    el('player-dot').classList.remove('dot-live');
+    el('player-badge').style.display  = 'none';
+    el('stats-bar').style.display     = 'none';
+    el('file-picker').style.display   = 'none';
+    el('stat-speed').textContent      = '—';
+    el('stat-peers').textContent      = '0 peers';
+    el('stat-progress').textContent   = '0%';
+    el('player-stage').style.cursor   = 'pointer';
+    setPanel('idle');
+}
+
+function showError(msg) {
+    clearTimeout(timeoutTimer);
+    clearInterval(statsTimer);
+    if (client) { client.destroy(); client = null; }
+    torrent = null; activeFile = null;
+
+    el('error-msg').textContent = msg;
+    el('player-dot').classList.remove('dot-live');
+    el('player-badge').style.display      = 'none';
+    el('stats-bar').style.display         = 'none';
+    el('player-idle').style.display       = 'none';
+    el('player-loading').style.display    = 'none';
+    el('player-error').style.display      = 'flex';
+    el('webtorrent-video').style.display  = 'none';
+}
+
+function resetPlayer() {
+    el('player-error').style.display = 'none';
+    el('player-idle').style.display  = 'flex';
+    el('player-stage').style.cursor  = 'pointer';
+}
+
+window.addEventListener('beforeunload', () => { if (client) client.destroy(); });
+</script>
+{% endif %}
+{% endblock %}

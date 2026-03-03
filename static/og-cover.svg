@@ -1,0 +1,32 @@
+<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#0d0f1a"/>
+      <stop offset="100%" stop-color="#1a1435"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7b61ff"/>
+      <stop offset="100%" stop-color="#ff61c0"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <!-- Decorative circles -->
+  <circle cx="950" cy="100"  r="280" fill="#7b61ff" opacity="0.06"/>
+  <circle cx="200" cy="530"  r="200" fill="#ff61c0" opacity="0.05"/>
+  <!-- Logo pill -->
+  <rect x="80" y="220" width="90" height="90" rx="20" fill="url(#accent)"/>
+  <text x="125" y="278" font-family="Arial Black, sans-serif" font-size="52" font-weight="900" fill="white" text-anchor="middle">N</text>
+  <!-- Site name -->
+  <text x="190" y="279" font-family="Arial Black, sans-serif" font-size="56" font-weight="900" fill="#eef0ff">Nyaa</text>
+  <text x="382" y="279" font-family="Arial Black, sans-serif" font-size="56" font-weight="900" fill="#7b61ff">Mirror</text>
+  <!-- Tagline -->
+  <text x="80" y="335" font-family="Arial, sans-serif" font-size="26" fill="#5c6391">Search anime, manga, music and software torrents</text>
+  <!-- Badges -->
+  <rect x="80"  y="380" width="145" height="40" rx="8" fill="#1a1e33"/>
+  <text x="152" y="406" font-family="Arial, sans-serif" font-size="18" fill="#a088ff" text-anchor="middle">🌸 nyaa.si</text>
+  <rect x="240" y="380" width="210" height="40" rx="8" fill="#1a1e33"/>
+  <text x="344" y="406" font-family="Arial, sans-serif" font-size="18" fill="#ff7090" text-anchor="middle">🔞 sukebei.nyaa.si</text>
+  <!-- Bottom border accent -->
+  <rect x="0" y="610" width="1200" height="5" fill="url(#accent)"/>
+</svg>

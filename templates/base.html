@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- ════════════════════════════════════════════════
+         PRIMARY SEO META
+    ════════════════════════════════════════════════ -->
+    <title>{% block title %}NyaaMirror - Anime & Manga Torrent Search{% endblock %}</title>
+
+    <meta name="description"
+          content="{% block meta_description %}Search and browse anime, manga, music and software torrents from nyaa.si and sukebei.nyaa.si — fast mirror with magnet links and .torrent downloads.{% endblock %}">
+
+    <meta name="robots" content="{% block meta_robots %}index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1{% endblock %}">
+    {% if request.args.get('site') == 'sukebei' or (request.view_args and request.view_args.get('site') == 'sukebei') %}
+    <meta name="rating" content="adult">
+    <meta name="rating" content="RTA-5042-1996-1400-1577-RTA">
+    {% endif %}
+    <meta name="author"  content="NyaaMirror">
+    <meta name="theme-color" content="#7b61ff">
+
+    <!-- Canonical — prevents duplicate content from query params -->
+    <link rel="canonical" href="{% block canonical %}{{ request.url }}{% endblock %}">
+
+    <!-- ════════════════════════════════════════════════
+         OPEN GRAPH (Facebook, Discord, Telegram, LINE…)
+    ════════════════════════════════════════════════ -->
+    <meta property="og:site_name"   content="NyaaMirror">
+    <meta property="og:type"        content="{% block og_type %}website{% endblock %}">
+    <meta property="og:title"       content="{{ self.title() }}">
+    <meta property="og:description" content="{{ self.meta_description() }}">
+    <meta property="og:url"         content="{{ self.canonical() }}">
+    <meta property="og:image"       content="{% block og_image %}{{ request.host_url }}static/og-cover.png{% endblock %}">
+    <meta property="og:image:width"  content="1200">
+    <meta property="og:image:height" content="630">
+    <meta property="og:locale"      content="en_US">
+
+    <!-- ════════════════════════════════════════════════
+         TWITTER / X CARD
+    ════════════════════════════════════════════════ -->
+    <meta name="twitter:card"        content="summary_large_image">
+    <meta name="twitter:title"       content="{{ self.title() }}">
+    <meta name="twitter:description" content="{{ self.meta_description() }}">
+    <meta name="twitter:image"       content="{{ self.og_image() }}">
+
+    <!-- ════════════════════════════════════════════════
+         STRUCTURED DATA (JSON-LD) — injected per page
+    ════════════════════════════════════════════════ -->
+    {% block json_ld %}{% endblock %}
+
+    <!-- ════════════════════════════════════════════════
+         STYLES
+    ════════════════════════════════════════════════ -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Zen+Kaku+Gothic+Antique:wght@400;700;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        bg: '#0d0f1a', surface: '#131626', card: '#1a1e33',
+                        border: '#252a45', accent: '#7b61ff', pink: '#ff61c0',
+                        teal: '#00e5c4', danger: '#ff4d6d', success: '#39d98a',
+                        warn: '#ffd166', muted: '#5c6391', text: '#c8cef5', bright: '#eef0ff',
+                    },
+                    fontFamily: {
+                        mono: ['"JetBrains Mono"', 'monospace'],
+                        display: ['"Zen Kaku Gothic Antique"', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+        body { font-family: 'JetBrains Mono', monospace; background: #0d0f1a; color: #c8cef5; min-height: 100vh; }
+
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: #131626; }
+        ::-webkit-scrollbar-thumb { background: #252a45; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #7b61ff; }
+
+        .row-success { border-left: 3px solid #39d98a; }
+        .row-danger  { border-left: 3px solid #ff4d6d; }
+        .row-warning { border-left: 3px solid #ffd166; }
+        .row-default { border-left: 3px solid transparent; }
+
+        .torrent-row:hover { background: #1c2040 !important; }
+        .seed  { color: #39d98a; }
+        .leech { color: #ff4d6d; }
+        .torrent-card { transition: background 0.15s; }
+        .torrent-card:hover { background: #1c2040; }
+
+        @media (max-width: 768px) { .col-hide-mobile { display: none !important; } }
+
+        .input-nyaa:focus {
+            outline: none;
+            border-color: #7b61ff !important;
+            box-shadow: 0 0 0 3px rgba(123,97,255,0.18);
+        }
+
+        .badge { font-size: 0.6rem; padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
+        .hero-gradient { background: linear-gradient(135deg, #131626 0%, #1a1435 100%); border-bottom: 1px solid #252a45; }
+
+        .cat-anime    { background: rgba(123,97,255,0.18); color: #a088ff; border: 1px solid rgba(123,97,255,0.3); }
+        .cat-audio    { background: rgba(0,229,196,0.12);  color: #00e5c4; border: 1px solid rgba(0,229,196,0.25); }
+        .cat-live     { background: rgba(255,214,102,0.12); color: #ffd166; border: 1px solid rgba(255,214,102,0.25); }
+        .cat-software { background: rgba(57,217,138,0.12);  color: #39d98a; border: 1px solid rgba(57,217,138,0.25); }
+        .cat-lit      { background: rgba(255,97,192,0.12);  color: #ff8ed4; border: 1px solid rgba(255,97,192,0.25); }
+        .cat-pic      { background: rgba(255,167,97,0.12);  color: #ffb067; border: 1px solid rgba(255,167,97,0.25); }
+        .cat-other    { background: rgba(92,99,145,0.18);   color: #8890c0; border: 1px solid rgba(92,99,145,0.3); }
+
+        .btn-press:active { transform: scale(0.97); }
+
+        #copy-toast {
+            position: fixed; bottom: 1.5rem; left: 50%;
+            transform: translateX(-50%) translateY(4rem);
+            background: #1a1e33; border: 1px solid #252a45; color: #c8cef5;
+            padding: 0.5rem 1.2rem; border-radius: 8px; font-size: 0.75rem;
+            transition: transform 0.25s ease; z-index: 9999; pointer-events: none;
+        }
+        #copy-toast.show { transform: translateX(-50%) translateY(0); }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="hero-gradient sticky top-0 z-50" role="navigation" aria-label="Main navigation">
+    <div class="max-w-7xl mx-auto px-3 sm:px-4 py-3">
+        <div class="flex items-center justify-between gap-3">
+            <!-- Logo -->
+            <a href="/" class="flex items-center gap-2 shrink-0" aria-label="NyaaMirror home">
+                <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+                     style="background: linear-gradient(135deg,#7b61ff,#ff61c0);">
+                    <span class="text-white font-black text-sm" aria-hidden="true">N</span>
+                </div>
+                <span class="font-display font-black text-lg tracking-tight hidden sm:block" style="color:#eef0ff;">
+                    Nyaa<span style="color:#7b61ff;">Mirror</span>
+                </span>
+            </a>
+
+            <!-- Quick Search -->
+            <form method="GET" action="/browse" class="hidden md:flex flex-1 max-w-lg gap-2"
+                  role="search" aria-label="Search torrents">
+                <input type="hidden" name="site" value="{{ request.args.get('site', 'nyaa') }}">
+                <input type="text" name="q" placeholder="Search torrents..."
+                    class="input-nyaa flex-1 px-3 py-1.5 rounded-lg text-sm"
+                    style="background:#0d0f1a; border:1px solid #252a45; color:#eef0ff; font-family:inherit;"
+                    value="{{ request.args.get('q','') }}"
+                    aria-label="Search query">
+                <button type="submit" class="px-4 py-1.5 rounded-lg text-xs font-bold btn-press"
+                    style="background: linear-gradient(135deg,#7b61ff,#9b7dff); color:white;">Go</button>
+            </form>
+
+            <!-- Nav links -->
+            {% set _site = request.args.get('site','nyaa') %}
+            <div class="flex items-center gap-3 text-xs" style="color:#5c6391;">
+                <a href="/browse?site=nyaa&c=1_0"  class="hover:text-accent transition-colors hidden sm:block">Anime</a>
+                <a href="/browse?site=nyaa&c=4_0"  class="hover:text-accent transition-colors hidden sm:block">Live Action</a>
+                <a href="/browse?site=sukebei"     class="hover:text-danger transition-colors hidden sm:block">🔞 Sukebei</a>
+                <a href="/{{ _site }}/rss"         class="hover:text-warn  transition-colors" aria-label="RSS feed">RSS</a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<!-- ── Breadcrumb (injected per page) ── -->
+{% block breadcrumb %}{% endblock %}
+
+<main class="max-w-7xl mx-auto px-3 sm:px-4 py-4 sm:py-6" id="main-content">
+    {% block content %}{% endblock %}
+</main>
+
+<!-- Footer -->
+<footer class="border-t mt-12 py-6" style="border-color:#252a45; color:#3d4466;" role="contentinfo">
+    <div class="max-w-7xl mx-auto px-4 text-center text-xs space-y-1">
+        <nav aria-label="Footer links" class="flex justify-center gap-4 mb-2" style="color:#5c6391;">
+            <a href="/browse?site=nyaa"    class="hover:text-accent transition-colors">nyaa.si</a>
+            <a href="/browse?site=sukebei" class="hover:text-danger transition-colors">sukebei.nyaa.si</a>
+            <a href="/sitemap.xml"         class="hover:text-accent transition-colors">Sitemap</a>
+            <a href="/nyaa/rss"            class="hover:text-warn   transition-colors">RSS</a>
+        </nav>
+        <p>NyaaMirror — Mirror of
+            <a href="https://nyaa.si"         target="_blank" rel="noopener noreferrer" class="hover:text-accent transition-colors">nyaa.si</a> &amp;
+            <a href="https://sukebei.nyaa.si" target="_blank" rel="noopener noreferrer" class="hover:text-danger transition-colors">sukebei.nyaa.si</a>
+        </p>
+        <p style="color:#2a2f4a;">Not affiliated with Nyaa · For educational purposes only</p>
+    </div>
+</footer>
+
+<!-- Toast -->
+<div id="copy-toast" role="status" aria-live="polite">✓ Copied to clipboard</div>
+
+<script>
+function copyText(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        const t = document.getElementById('copy-toast');
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2000);
+    });
+}
+</script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

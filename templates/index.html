@@ -1,0 +1,384 @@
+{% extends "base.html" %}
+
+{# ── SEO: Title ── #}
+{% block title %}
+{%- if query -%}
+  "{{ query }}" Torrents on {{ site_label }} — NyaaMirror
+{%- elif category != '0_0' -%}
+  {{ categories.get(category, category) }} Torrents — {{ site_label }} | NyaaMirror
+{%- else -%}
+  {{ site_label }} Torrent Index — NyaaMirror
+{%- endif %}
+{% endblock %}
+
+{# ── SEO: Meta Description ── #}
+{% block meta_description %}
+{%- if query -%}
+  Search results for "{{ query }}" on {{ site_label }}. Browse torrents with magnet links and direct .torrent downloads — NyaaMirror.
+{%- elif category != '0_0' -%}
+  Browse {{ categories.get(category, category) }} torrents on {{ site_label }} via NyaaMirror. Magnet links, seeders, leechers and download links.
+{%- else -%}
+  Search and browse {{ site_label }} torrents — anime, manga, doujinshi, music and more. Instant magnet links and .torrent downloads on NyaaMirror.
+{%- endif %}
+{% endblock %}
+
+{# ── SEO: Canonical — strip unimportant params ── #}
+{% block canonical %}{{ request.host_url }}browse?site={{ site }}{% if query %}&q={{ query | urlencode }}{% endif %}{% if category and category != '0_0' %}&c={{ category }}{% endif %}{% if filter_val and filter_val != '0' %}&f={{ filter_val }}{% endif %}{% if current_page > 1 %}&p={{ current_page }}{% endif %}{% endblock %}
+
+{# ── SEO: sukebei should have noindex on explicit pages (optional — comment out to allow indexing) ── #}
+{# {% if site == 'sukebei' %}{% block meta_robots %}noindex, follow{% endblock %}{% endif %} #}
+
+{# ── SEO: JSON-LD — WebSite + SearchAction + ItemList ── #}
+{% block json_ld %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": "{{ request.host_url }}#website",
+      "name": "NyaaMirror",
+      "url": "{{ request.host_url }}",
+      "description": "Mirror and search engine for nyaa.si and sukebei.nyaa.si torrent listings",
+      "potentialAction": {
+        "@type": "SearchAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "{{ request.host_url }}browse?site={{ site }}&q={search_term_string}"
+        },
+        "query-input": "required name=search_term_string"
+      }
+    }
+    {% if torrents %}
+    ,{
+      "@type": "ItemList",
+      "@id": "{{ request.host_url }}browse?site={{ site }}{% if query %}&q={{ query | urlencode }}{% endif %}#list",
+      "name": "{% if query %}Search results for {{ query | replace('"','\\\"') }} on {{ site_label }}{% elif category != '0_0' %}{{ categories.get(category,'') }} on {{ site_label }}{% else %}Latest torrents from {{ site_label }}{% endif %}",
+      "numberOfItems": {{ torrents | length }},
+      "itemListElement": [
+        {% for t in torrents %}
+        {
+          "@type": "ListItem",
+          "position": {{ ((current_page - 1) * 75) + loop.index }},
+          "name": "{{ t.title | replace('"', '\\\"') | replace('\n', ' ') | truncate(120, True, '') }}",
+          "url": "{{ request.host_url[:-1] }}{{ t.url }}"
+        }{% if not loop.last %},{% endif %}
+        {% endfor %}
+      ]
+    }
+    {% endif %}
+  ]
+}
+</script>
+{% endblock %}
+
+{# ── SEO: BreadcrumbList ── #}
+{% block breadcrumb %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": "{{ request.host_url }}"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "{{ site_label }}",
+      "item": "{{ request.host_url }}browse?site={{ site }}"
+    }
+    {% if category and category != '0_0' %}
+    ,{
+      "@type": "ListItem",
+      "position": 3,
+      "name": "{{ categories.get(category, category) }}",
+      "item": "{{ request.host_url }}browse?site={{ site }}&c={{ category }}"
+    }
+    {% endif %}
+    {% if query %}
+    ,{
+      "@type": "ListItem",
+      "position": {{ 4 if (category and category != '0_0') else 3 }},
+      "name": "Search: {{ query | replace('"','\\\"') }}",
+      "item": "{{ request.host_url }}browse?site={{ site }}&q={{ query | urlencode }}"
+    }
+    {% endif %}
+  ]
+}
+</script>
+{% endblock %}
+
+{% macro cat_class(cat) %}
+{%- if 'Anime' in cat or 'Art' in cat %}cat-anime
+{%- elif 'Audio' in cat %}cat-audio
+{%- elif 'Live' in cat or 'Real' in cat %}cat-live
+{%- elif 'Software' in cat %}cat-software
+{%- elif 'Literature' in cat %}cat-lit
+{%- elif 'Picture' in cat or 'Doujinshi' in cat or 'Manga' in cat %}cat-pic
+{%- else %}cat-other{%- endif %}
+{% endmacro %}
+
+{% block content %}
+
+<!-- ── Site Switcher ──────────────────────────────────────────── -->
+<div class="flex items-center gap-2 mb-3">
+    {% for key, info in sites.items() %}
+    <a href="/browse?site={{ key }}&q={{ query }}&c=0_0&f=0"
+       class="px-4 py-1.5 rounded-full text-xs font-bold transition-all btn-press"
+       style="{% if site == key %}background:{% if key=='sukebei' %}linear-gradient(135deg,#ff4d6d,#ff7090){% else %}linear-gradient(135deg,#7b61ff,#9b7dff){% endif %}; color:white;{% else %}background:#131626; border:1px solid #252a45; color:#5c6391;{% endif %}"
+       aria-current="{% if site == key %}page{% else %}false{% endif %}">
+        {% if key == 'sukebei' %}🔞{% else %}🌸{% endif %} {{ info.label }}
+    </a>
+    {% endfor %}
+    <span class="text-xs ml-1" style="color:#3d4466;">
+        {% if site == 'sukebei' %}— Konten dewasa (18+){% else %}— Anime &amp; umum{% endif %}
+    </span>
+</div>
+
+<!-- ── Search Panel ─────────────────────────────────────────────── -->
+<div class="rounded-xl p-3 sm:p-4 mb-4" style="background:#131626; border:1px solid {% if site=='sukebei' %}#3d1a24{% else %}#252a45{% endif %};">
+    <form method="GET" action="/browse" role="search" aria-label="Search {{ site_label }}">
+        <input type="hidden" name="site" value="{{ site }}">
+        <div class="flex gap-2 mb-3">
+            <input type="text" name="q" value="{{ query }}"
+                placeholder="Search {{ site_label }}..."
+                class="input-nyaa flex-1 px-3 sm:px-4 py-2.5 rounded-lg text-sm"
+                style="background:#0d0f1a; border:1px solid #252a45; color:#eef0ff; font-family:inherit;"
+                aria-label="Search query">
+            <button type="submit"
+                class="px-4 sm:px-6 py-2.5 rounded-lg text-sm font-bold btn-press shrink-0"
+                style="background:{% if site=='sukebei' %}linear-gradient(135deg,#ff4d6d,#ff7090){% else %}linear-gradient(135deg,#7b61ff,#9b7dff){% endif %}; color:white;">
+                Search
+            </button>
+        </div>
+
+        <div class="flex flex-wrap gap-2 items-center">
+            <select name="c" onchange="this.form.submit()" aria-label="Category filter"
+                class="input-nyaa text-xs px-2.5 py-1.5 rounded-md cursor-pointer"
+                style="background:#0d0f1a; border:1px solid #252a45; color:#c8cef5; font-family:inherit;">
+                {% for val, label in categories.items() %}
+                <option value="{{ val }}" {% if val == category %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+
+            <select name="f" onchange="this.form.submit()" aria-label="Filter type"
+                class="input-nyaa text-xs px-2.5 py-1.5 rounded-md cursor-pointer"
+                style="background:#0d0f1a; border:1px solid #252a45; color:#c8cef5; font-family:inherit;">
+                {% for val, label in filters.items() %}
+                <option value="{{ val }}" {% if val == filter_val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+
+            {% if query %}
+            <span class="text-xs px-2.5 py-1.5 rounded-md"
+                  style="background:rgba(123,97,255,0.1); color:#7b61ff; border:1px solid rgba(123,97,255,0.3);">
+                "{{ query }}"
+            </span>
+            <a href="/browse?site={{ site }}&c={{ category }}&f={{ filter_val }}"
+               class="text-xs px-2.5 py-1.5 rounded-md transition-colors"
+               style="background:rgba(255,77,109,0.1); color:#ff4d6d; border:1px solid rgba(255,77,109,0.25);"
+               aria-label="Clear search">
+                ✕ Clear
+            </a>
+            {% endif %}
+
+            {% if torrents %}
+            <span class="text-xs ml-auto" style="color:#3d4466;" aria-label="Page {{ current_page }} of {{ total_pages }}">
+                Page {{ current_page }}{% if total_pages > 1 %} / {{ total_pages }}{% endif %}
+            </span>
+            {% endif %}
+        </div>
+    </form>
+</div>
+
+{% if torrents %}
+
+<!-- ── Desktop Table ──────────────────────────────────────────── -->
+<section aria-label="Torrent listing" class="hidden md:block rounded-xl overflow-hidden" style="border:1px solid #252a45;">
+    <div class="grid text-xs font-bold uppercase tracking-widest px-3 py-2.5"
+         style="background:#131626; color:#5c6391; border-bottom:1px solid #252a45;
+                grid-template-columns: 100px 1fr 80px 90px 80px 44px 44px 54px;"
+         role="row">
+        <span role="columnheader">Category</span>
+        <span role="columnheader">Title</span>
+        <span class="text-center" role="columnheader">Links</span>
+        <span class="text-right" role="columnheader">Size</span>
+        <span class="text-right" role="columnheader">Date</span>
+        <span class="text-center seed" role="columnheader" title="Seeders">S</span>
+        <span class="text-center leech" role="columnheader" title="Leechers">L</span>
+        <span class="text-center" role="columnheader" title="Completed" style="color:#5c6391;">↓</span>
+    </div>
+
+    {% for t in torrents %}
+    <article class="torrent-row grid text-xs px-3 py-2.5 border-b cursor-pointer transition-colors
+                    row-{{ t.status if t.status != 'default' else 'default' }}"
+         style="background:#0d0f1a; border-color:#151929;
+                grid-template-columns: 100px 1fr 80px 90px 80px 44px 44px 54px;
+                align-items:center;"
+         onclick="window.location='{{ t.url }}'">
+
+        <div>
+            <span class="badge {{ cat_class(t.category) | trim }}">
+                {{ t.category | truncate(14, True, '…') }}
+            </span>
+        </div>
+
+        <div class="min-w-0 pr-2">
+            <a href="{{ t.url }}"
+               class="hover:underline block truncate"
+               style="color:{% if t.status=='success' %}#39d98a{% elif t.status=='danger' %}#ff7090{% else %}#c8cef5{% endif %};"
+               title="{{ t.title }}"
+               onclick="event.stopPropagation()">{{ t.title }}</a>
+        </div>
+
+        <div class="flex items-center justify-center gap-1.5" onclick="event.stopPropagation()">
+            {% if t.torrent_file %}
+            <a href="{{ t.torrent_file }}" title="Download .torrent file for {{ t.title }}"
+               aria-label="Download .torrent"
+               class="p-1 rounded transition-all hover:scale-110"
+               style="background:rgba(123,97,255,0.15); color:#7b61ff;">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+            </a>
+            {% endif %}
+            {% if t.magnet %}
+            <a href="{{ t.magnet }}" title="Open magnet link for {{ t.title }}"
+               aria-label="Open magnet link"
+               class="p-1 rounded transition-all hover:scale-110"
+               style="background:rgba(0,229,196,0.1); color:#00e5c4;">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 0v10m0 0l-3-3m3 3l3-3"/>
+                </svg>
+            </a>
+            {% endif %}
+        </div>
+
+        <div class="text-right" style="color:#5c6391;">{{ t.size }}</div>
+        <div class="text-right" style="color:#3d4466;" title="{{ t.date }}">
+            <time datetime="{{ t.date }}">{{ t.date[:10] if t.date else '' }}</time>
+        </div>
+        <div class="text-center font-bold seed" aria-label="{{ t.seeders }} seeders">{{ t.seeders }}</div>
+        <div class="text-center font-bold leech" aria-label="{{ t.leechers }} leechers">{{ t.leechers }}</div>
+        <div class="text-center" style="color:#5c6391;">{{ t.completed }}</div>
+    </article>
+    {% endfor %}
+</section>
+
+<!-- ── Mobile Cards ────────────────────────────────────────────── -->
+<section class="md:hidden space-y-2" aria-label="Torrent listing">
+    {% for t in torrents %}
+    <article class="torrent-card rounded-xl p-3 border row-{{ t.status if t.status != 'default' else 'default' }}"
+         style="background:#131626; border-color:#252a45;">
+        <div class="flex items-start justify-between gap-2 mb-1.5">
+            <span class="badge {{ cat_class(t.category) | trim }} shrink-0">
+                {{ t.category | truncate(16, True, '…') }}
+            </span>
+            <div class="flex items-center gap-2 text-xs shrink-0">
+                <span class="seed font-bold" aria-label="{{ t.seeders }} seeders">▲{{ t.seeders }}</span>
+                <span class="leech font-bold" aria-label="{{ t.leechers }} leechers">▼{{ t.leechers }}</span>
+            </div>
+        </div>
+
+        <a href="{{ t.url }}"
+           class="block text-sm font-bold leading-snug mb-2 hover:underline"
+           style="color:{% if t.status=='success' %}#39d98a{% elif t.status=='danger' %}#ff7090{% else %}#eef0ff{% endif %};">
+            {{ t.title }}
+        </a>
+
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2 text-xs" style="color:#5c6391;">
+                <span>{{ t.size }}</span><span>·</span>
+                <time datetime="{{ t.date }}">{{ t.date[:10] if t.date else '' }}</time>
+                <span>·</span>
+                <span style="color:#3d4466;">↓{{ t.completed }}</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                {% if t.torrent_file %}
+                <a href="{{ t.torrent_file }}" aria-label="Download .torrent"
+                   class="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold btn-press"
+                   style="background:rgba(123,97,255,0.18); color:#a088ff; border:1px solid rgba(123,97,255,0.3);">
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                    </svg>
+                    .torrent
+                </a>
+                {% endif %}
+                {% if t.magnet %}
+                <a href="{{ t.magnet }}" aria-label="Open magnet link"
+                   class="flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-bold btn-press"
+                   style="background:rgba(0,229,196,0.1); color:#00e5c4; border:1px solid rgba(0,229,196,0.25);">
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
+                    </svg>
+                    Magnet
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </article>
+    {% endfor %}
+</section>
+
+<!-- ── Pagination ───────────────────────────────────────────── -->
+{% if total_pages > 1 %}
+<nav aria-label="Pagination" class="flex items-center justify-center flex-wrap gap-1 mt-5">
+    {% if current_page > 1 %}
+    <a href="/browse?site={{ site }}&q={{ query }}&c={{ category }}&f={{ filter_val }}&p={{ current_page-1 }}"
+       class="px-3 py-1.5 rounded-lg text-xs btn-press transition-all"
+       style="background:#131626; border:1px solid #252a45; color:#c8cef5;"
+       rel="prev" aria-label="Previous page">← Prev</a>
+    {% endif %}
+
+    {% set start_p = [1, current_page-2]|max %}
+    {% set end_p   = [total_pages, current_page+2]|min %}
+
+    {% if start_p > 1 %}
+    <a href="/browse?site={{ site }}&q={{ query }}&c={{ category }}&f={{ filter_val }}&p=1"
+       class="px-3 py-1.5 rounded-lg text-xs btn-press"
+       style="background:#131626; border:1px solid #252a45; color:#c8cef5;">1</a>
+    {% if start_p > 2 %}<span class="text-xs" style="color:#3d4466;" aria-hidden="true">…</span>{% endif %}
+    {% endif %}
+
+    {% for p in range(start_p, end_p+1) %}
+    <a href="/browse?site={{ site }}&q={{ query }}&c={{ category }}&f={{ filter_val }}&p={{ p }}"
+       class="px-3 py-1.5 rounded-lg text-xs font-bold btn-press"
+       style="{% if p==current_page %}background:{% if site=='sukebei' %}#ff4d6d{% else %}#7b61ff{% endif %}; color:white;{% else %}background:#131626; border:1px solid #252a45; color:#c8cef5;{% endif %}"
+       aria-label="Page {{ p }}" {% if p==current_page %}aria-current="page"{% endif %}>
+        {{ p }}
+    </a>
+    {% endfor %}
+
+    {% if end_p < total_pages %}
+    {% if end_p < total_pages-1 %}<span class="text-xs" style="color:#3d4466;" aria-hidden="true">…</span>{% endif %}
+    <a href="/browse?site={{ site }}&q={{ query }}&c={{ category }}&f={{ filter_val }}&p={{ total_pages }}"
+       class="px-3 py-1.5 rounded-lg text-xs btn-press"
+       style="background:#131626; border:1px solid #252a45; color:#c8cef5;"
+       aria-label="Page {{ total_pages }}">{{ total_pages }}</a>
+    {% endif %}
+
+    {% if current_page < total_pages %}
+    <a href="/browse?site={{ site }}&q={{ query }}&c={{ category }}&f={{ filter_val }}&p={{ current_page+1 }}"
+       class="px-3 py-1.5 rounded-lg text-xs btn-press transition-all"
+       style="background:#131626; border:1px solid #252a45; color:#c8cef5;"
+       rel="next" aria-label="Next page">Next →</a>
+    {% endif %}
+</nav>
+{% endif %}
+
+{% else %}
+<div class="text-center py-20" role="status">
+    <div class="text-5xl mb-4" aria-hidden="true">{% if site == 'sukebei' %}🔞{% else %}🌸{% endif %}</div>
+    <p class="text-base font-display font-bold mb-1" style="color:#eef0ff;">No results found</p>
+    <p class="text-sm" style="color:#5c6391;">
+        {% if query %}Try a different search term or change the category filter.
+        {% else %}This may be a connection issue with {{ site_label }}. Please try again.{% endif %}
+    </p>
+</div>
+{% endif %}
+
+{% endblock %}
